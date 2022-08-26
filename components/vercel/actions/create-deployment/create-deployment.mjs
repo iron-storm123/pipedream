@@ -4,10 +4,16 @@ export default {
   key: "vercel-create-deployment",
   name: "Create Deployment",
   description: "Create a new deployment from a GitHub repository. [See the docs](https://vercel.com/docs/rest-api#endpoints/deployments/create-a-new-deployment)",
-  version: "0.0.1",
+  version: "0.1.0",
   type: "action",
   props: {
     vercel,
+    accessToken: {
+      propDefinition: [
+        vercel,
+        "accessToken",
+      ],
+    },
     name: {
       type: "string",
       label: "Name",
@@ -17,6 +23,9 @@ export default {
       propDefinition: [
         vercel,
         "project",
+        (c) => ({
+          accessToken: c.accessToken,
+        }),
       ],
       description: "The target project identifier in which the deployment will be created. When defined, this parameter overrides name",
     },
@@ -35,6 +44,9 @@ export default {
       propDefinition: [
         vercel,
         "team",
+        (c) => ({
+          accessToken: c.accessToken,
+        }),
       ],
     },
     public: {
@@ -56,7 +68,11 @@ export default {
         ref: this.branch,
       },
     };
-    const res = await this.vercel.createDeployment(data, $);
+    const res = await this.vercel.createDeployment({
+      accessToken: this.accessToken,
+      data,
+      $,
+    });
     $.export("$summary", "Successfully created new deployment");
     return res;
   },

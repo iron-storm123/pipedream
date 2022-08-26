@@ -4,7 +4,7 @@ export default {
   key: "vercel-new-deployment",
   name: "New Deployment",
   description: "Emit new event when a deployment is created",
-  version: "0.0.1",
+  version: "0.1.0",
   type: "source",
   dedupe: "unique",
   props: {
@@ -16,10 +16,19 @@ export default {
         intervalSeconds: 60 * 15,
       },
     },
+    accessToken: {
+      propDefinition: [
+        vercel,
+        "accessToken",
+      ],
+    },
     project: {
       propDefinition: [
         vercel,
         "project",
+        (c) => ({
+          accessToken: c.accessToken,
+        }),
       ],
     },
     state: {
@@ -69,7 +78,11 @@ export default {
       if (from) {
         params.from = from;
       }
-      const deployments = await this.vercel.listDeployments(params, max);
+      const deployments = await this.vercel.listDeployments({
+        accessToken: this.accessToken,
+        params,
+        max,
+      });
       for (const deployment of deployments) {
         if (!from || deployment.created > from) {
           from = deployment.created;

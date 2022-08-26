@@ -4,20 +4,32 @@ export default {
   key: "vercel-list-deployments",
   name: "List Deployments",
   description: "List deployments under the account corresponding to the API token. [See the docs](https://vercel.com/docs/rest-api#endpoints/deployments/list-deployments)",
-  version: "0.0.1",
+  version: "0.1.0",
   type: "action",
   props: {
     vercel,
+    accessToken: {
+      propDefinition: [
+        vercel,
+        "accessToken",
+      ],
+    },
     project: {
       propDefinition: [
         vercel,
         "project",
+        (c) => ({
+          accessToken: c.accessToken,
+        }),
       ],
     },
     team: {
       propDefinition: [
         vercel,
         "team",
+        (c) => ({
+          accessToken: c.accessToken,
+        }),
       ],
     },
     state: {
@@ -39,7 +51,12 @@ export default {
       state: this.state,
       teamId: this.team,
     };
-    const res = await this.vercel.listDeployments(params, this.max, $);
+    const res = await this.vercel.listDeployments({
+      accessToken: this.accessToken,
+      max: this.max,
+      params,
+      $,
+    });
     $.export("$summary", `Found ${res.length} deployment${res.length !== 1
       ? "s"
       : ""}`);

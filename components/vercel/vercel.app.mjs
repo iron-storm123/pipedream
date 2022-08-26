@@ -1,3 +1,4 @@
+import { ConfigurationError } from "@pipedream/platform";
 import { axios } from "@pipedream/platform";
 import constants from "./constants.mjs";
 
@@ -5,34 +6,53 @@ export default {
   type: "app",
   app: "vercel",
   propDefinitions: {
+    accessToken: {
+      type: "string",
+      label: "Access Token",
+      description: "Use your personal access token created through Vercel UI instead of the OAuth token",
+      secret: true,
+      optional: true,
+    },
     project: {
       type: "string",
       label: "Project",
       description: "Filter deployments from the given projectId",
       optional: true,
-      async options() {
-        const projects = await this.listProjects();
-        return projects?.map((project) => ({
-          label: project.name,
-          value: project.id,
-        })) ?? [];
+      async options({ accessToken }) {
+        try {
+          const projects = await this.listProjects({
+            accessToken,
+          });
+          return projects?.map((project) => ({
+            label: project.name,
+            value: project.id,
+          })) ?? [];
+        } catch (error) {
+          return this.propConfigurationError(error);
+        }
       },
     },
     deployment: {
       type: "string",
       label: "Deployment",
       description: "Select the deployment to cancel",
-      async options({ state }) {
-        const params = state
-          ? {
-            state,
-          }
-          : {};
-        const deployments = await this.listDeployments(params);
-        return deployments?.map((deployment) => ({
-          label: deployment.name,
-          value: deployment.uid,
-        })) ?? [];
+      async options({
+        accessToken, state,
+      }) {
+        const params = {};
+        if (state) params.state = state;
+        try {
+          const deployments = await this.listDeployments({
+            accessToken,
+            params,
+          });
+          return deployments?.map((deployment) => ({
+            label: deployment.name,
+            value: deployment.uid,
+          })) ?? [];
+        } catch (error) {
+          return this.propConfigurationError(error);
+        }
       },
     },
     team: {
@@ -40,15 +60,17 @@ export default {
       label: "Team",
       description: "The Team identifier or slug to perform the request on behalf of",
       optional: true,
-      async options() {
+      async options({ accessToken }) {
         try {
-          const teams = await this.listTeams();
+          const teams = await this.listTeams({
+            accessToken,
+          });
           return teams?.map((team) => ({
             label: team.slug,
             value: team.id,
           })) ?? [];
-        } catch (e) {
-          throw new Error(e.message);
+        } catch (error) {
+          return this.propConfigurationError(error);
         }
       },
     },
@@ -67,12 +89,32 @@ export default {
     },
   },
   methods: {
+    propConfigurationError(error) {
+      const { message } = error;
+      const {
+        status,
+        statusText,
+      } = error.response;
+      throw new ConfigurationError(`Prop Configuration Error: ${status} - ${statusText} - ${message}`);
+    },
+    authHeader(accessToken) {
+      const token = accessToken
+        ? accessToken
+        : this.$auth.oauth_access_token;
+      return {
+        Authorization: `Bearer ${token}`,
+      };
+    },
     async makeRequest(config, $) {
+      const {
+        accessToken,
+        ...params
+      } = config;
       config = {
-        ...config,
+        ...params,
         url: `https://api.vercel.com/${config.endpoint}`,
         headers: {
-          "Authorization": `Bearer ${this.$auth.oauth_access_token}`,
+          ...this.authHeader(accessToken),
           "User-Agent": "@PipedreamHQ/pipedream v0.1",
         },
       };
@@ -106,40 +148,55 @@ export default {
       }
       return allResults;
     },
-    async listProjects(max, $) {
+    async listProjects({
+      accessToken, max, $,
+    }) {
       const config = {
         method: "GET",
         endpoint: "v8/projects",
+        accessToken,
       };
       return this.paginate("projects", config, max, $);
     },
-    async listDeployments(params, max, $) {
+    async listDeployments({
+      accessToken, params, max, $,
+    }) {
       const config = {
         method: "GET",
         endpoint: "v6/deployments",
+        accessToken,
         params,
       };
       return this.paginate("deployments", config, max, $);
     },
-    async listTeams(max, $) {
+    async listTeams({
+      accessToken, max, $,
+    }) {
       const config = {
         method: "GET",
         endpoint: "v2/teams",
+        accessToken,
       };
       return this.paginate("teams", config, max, $);
     },
-    async cancelDeployment(id, params, $) {
+    async cancelDeployment({
+      accessToken, id, params, $,
+    }) {
       const config = {
         method: "PATCH",
         endpoint: `v12/deployments/${id}/cancel`,
+        accessToken,
         params,
       };
       return this.makeRequest(config, $);
     },
-    async createDeployment(data, $) {
+    async createDeployment({
+      accessToken, data, $,
+    }) {
       const config = {
         method: "POST",
         endpoint: "v13/deployments",
+        accessToken,
         data,
       };
       if (data.teamId) {
