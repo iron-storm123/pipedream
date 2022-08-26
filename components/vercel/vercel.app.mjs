@@ -28,7 +28,12 @@ export default {
             value: project.id,
           })) ?? [];
         } catch (error) {
-          return this.propConfigurationError(error);
+          const { message } = error;
+          const {
+            status,
+            statusText,
+          } = error.response;
+          throw new ConfigurationError(`Prop Configuration Error: ${status} - ${statusText} - ${message}`);
         }
       },
     },
@@ -96,6 +101,9 @@ export default {
         statusText,
       } = error.response;
       throw new ConfigurationError(`Prop Configuration Error: ${status} - ${statusText} - ${message}`);
+      // return [
+      //   `Prop Configuration Error: ${status} - ${statusText} - ${message}`,
+      // ];
     },
     authHeader(accessToken) {
       const token = accessToken
